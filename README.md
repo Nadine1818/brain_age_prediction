@@ -1,53 +1,56 @@
-# 🧠 Brain Age Prediction
+# Brain Age Prediction using Deep Learning
 
-A deep learning project that predicts chronological age from 3D brain MRI scans using transfer learning with EfficientNetB0.
+## Project Overview
 
----
+This project predicts biological brain age from 3D MRI scans using transfer learning and ensemble deep learning models. The model is trained on 3,794 brain MRI scans from the radiata-ai/brain-structure dataset.
 
-## 📋 Project Overview
+## Dataset
 
-This project leverages **transfer learning** to build a CNN model that estimates a person's age from structural brain MRI images. By fine-tuning a pre-trained EfficientNetB0 model on brain imaging data, we achieve accurate age predictions with minimal training data.
+- **Source:** radiata-ai/brain-structure (HuggingFace)
+- **Total Samples:** 3,794 MRI scans
+- **Age Range:** 18-85 years
+- **Train/Val/Test Split:** 60% / 20% / 20%
 
-**Key Innovation:** Converts 3D MRI volumes to 2D slices by averaging three strategic cross-sections (front, middle, back), capturing comprehensive brain information in a computationally efficient format.
+## Methodology
 
----
+### Data Preprocessing
+- Extract 5 strategic slices from each 3D brain MRI scan at depths: z/5, 2z/5, z/2, 3z/5, 4z/5
+- Average slices to capture representative brain structure
+- Normalize to 0-1 range
+- Resize to 128×128 pixels
+- Convert grayscale to RGB (triplicating channel) for ImageNet compatibility
 
-## 🎯 Objectives
+### Model Architecture
 
-- **Predict brain age** from 3D MRI scans
-- **Leverage transfer learning** from ImageNet-pretrained weights
-- **Achieve high accuracy** with minimal overfitting
-- **Two-phase training** for optimal performance: frozen base → fine-tuning
+**Transfer Learning Approach:**
+- Base Models: EfficientNetB0, ResNet50, DenseNet121
+- Pretrained Weights: ImageNet
+- Custom Head: GlobalAveragePooling2D → Dense(256, relu) → Dropout(0.4) → Dense(128, relu) → Dropout(0.3) → Dense(1)
 
----
+### Training Strategy
 
-## 📊 Dataset
+**Phase 1: Initial Training (Frozen Base)**
+- Epochs: 10
+- Batch Size: 32
+- Learning Rate: 0.001 (Adam)
+- Base model frozen to leverage ImageNet features
+- Early Stopping: patience=7, ReduceLROnPlateau: patience=3
 
-- **Source:** [radiata-ai/brain-structure](https://huggingface_hub.com/datasets/radiata-ai/brain-structure)
-- **Total Samples:** 3,794 brain MRI scans
-- **Data Split:** 80% train, 10% validation, 10% test
-- **Age Range:** Full adult lifespan
-- **Image Format:** T1-weighted structural MRI (3D volumes)
+**Phase 2: Fine-tuning (Unfrozen Layers)**
+- Epochs: 100
+- Batch Size: 10
+- Learning Rate: 1.2e-4 (Adam)
+- Unfreeze last 45 layers for careful adaptation
+- Early Stopping: patience=15, ReduceLROnPlateau: patience=5
 
-### Data Processing Pipeline
+### Ensemble Learning
 
-```
-3D MRI Volume (e.g., 256×256×180)
-          ↓
-    Extract 3 slices:
-    - Front third (z/3)
-    - Middle (z/2)
-    - Back third (2z/3)
-          ↓
-   Average to single slice
-          ↓
-   Normalize (0-1 range)
-          ↓
-   Resize to 128×128
-          ↓
-   Convert grayscale → RGB
-   (Stack channel 3 times)
-          ↓
+Three independent models trained with different random seeds:
+1. **EfficientNetB0** - Lightweight, efficient feature extraction
+2. **ResNet50** - Skip connections for deep learning
+3. **DenseNet121** - Dense connections for feature reuse
+
+**Prediction:** Simple average of predictions from all three models
    Ready for EfficientNetB0 ✅
 ```
 
@@ -105,95 +108,75 @@ Dense(1) [Age prediction]
 
 ---
 
-## 📈 Performance Metrics
+## Results
 
-The model is evaluated on unseen test data using:
+| Metric | Value |
+|--------|-------|
+| **Accuracy (±5 years)** | **66.8%** |
+| Mean Absolute Error | 4.66 years |
+| Root Mean Squared Error | 6.61 years |
+| R² Score | 0.9251 |
 
-| Metric | Description |
-|--------|-------------|
-| **MAE** | Mean Absolute Error (years) — average prediction error |
-| **RMSE** | Root Mean Squared Error — penalizes large errors more |
-| **R²** | Coefficient of determination (0-1) — how well predictions fit |
-| **Within ±5 years** | Percentage of predictions within 5-year accuracy window |
+**Performance Breakdown by Architecture:**
+- ResNet50: 60.3% (best single model)
+- DenseNet121: 57.9%
+- EfficientNetB0: 52.9%
+- **3-Model Ensemble: 66.8%** (+6.5% improvement over best single model)
 
----
+## Key Findings
 
-## 🛠 Dependencies
+1. **Ensemble Advantage:** Multi-model ensemble provides +6.5% accuracy improvement over the best single model
+2. **ResNet50 Superiority:** Skip connections work well for medical imaging tasks
+3. **Conservative Training:** Careful learning rate and layer unfreezing prevent overfitting on limited medical data
+4. **5-Slice Strategy:** Averaging 5 strategic slices captures sufficient brain detail without noise
 
-```
-tensorflow>=2.12.0       # Deep learning framework
-keras                    # High-level API
-nibabel                  # NIfTI file reading (MRI format)
-numpy                    # Numerical computing
-pandas                   # Data manipulation
-scikit-learn             # ML metrics & train-test split
-opencv-python (cv2)      # Image resizing
-matplotlib               # Visualization
-huggingface-hub          # Dataset download
-```
+## Installation & Usage
 
----
-
-## 📦 Installation & Usage
-
-### Prerequisites
-- Python 3.8+
-- GPU recommended (CUDA 11.8+) for faster training
-- ~10 GB free storage for dataset
-
-### Setup
-
+### Requirements
 ```bash
-# Clone the repository
-git clone https://github.com/Nadine1818/brain_age_prediction.git
-cd brain_age_prediction
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Or install manually
-pip install tensorflow nibabel numpy pandas scikit-learn opencv-python matplotlib huggingface-hub
+pip install tensorflow numpy nibabel scikit-learn matplotlib pandas huggingface-hub
 ```
 
 ### Running the Notebook
+1. Open `Brain_Age_Prediction.ipynb` in Kaggle or Jupyter
+2. Execute cells sequentially from top to bottom
+3. Models are saved to `/kaggle/working/model_{architecture}_best.keras`
+4. Final ensemble predictions and metrics displayed in evaluation cell
 
-```bash
-# Using Jupyter
-jupyter notebook Brain_Age_Prediction.ipynb
+### GPU Environment
+- Tested on: Kaggle GPU (NVIDIA Tesla P100)
+- Training Time: ~2-3 hours for complete 3-model ensemble
 
-# Or in Google Colab (recommended for GPU access)
-# Open in Colab: https://colab.research.google.com/
-# Upload the notebook and follow the cells
+## File Structure
+
+```
+.
+├── Brain_Age_Prediction.ipynb    # Main notebook with all code
+├── README.md                       # This file
+└── model_{architecture}_best.keras # Saved trained models
 ```
 
-### Expected Runtime
-- **Data Loading & Preprocessing:** ~15-20 minutes
-- **Phase 1 Training:** ~5-10 minutes
-- **Phase 2 Fine-tuning:** ~20-30 minutes
-- **Total:** ~45-60 minutes on GPU
+## Model Limitations
 
----
+- Trained on relatively small dataset (3,794 samples)
+- Age predictions have ±5 year prediction error margin
+- Generalization to other MRI acquisition protocols not tested
 
-## 🎓 Key Learning Points
+## Future Improvements
 
-1. **Transfer Learning:** How to leverage pre-trained models for specialized tasks
-2. **Fine-tuning Strategy:** Two-phase training for optimal performance
-3. **3D-to-2D Conversion:** Preserving important information while reducing complexity
-4. **Regularization Techniques:** Dropout, early stopping, and learning rate scheduling
-5. **Medical Image Processing:** Working with NIfTI format brain MRI data
-6. **Regression vs Classification:** Building continuous output models
+1. Increase training data for better generalization
+2. Experiment with 3D convolutions instead of 2D slices
+3. Implement uncertainty quantification
+4. Test on external validation datasets
+5. Fine-tune ensemble weights using validation performance
 
----
+## Citation
 
-## 📚 Technical Highlights
+Dataset: radiata-ai/brain-structure
 
-- **ImageNet Pretraining:** Leverages 1.2M images to initialize model
-- **Grayscale → RGB:** Converts brain MRI to 3-channel format for compatibility
-- **Batch Normalization:** Built into EfficientNetB0 for stable training
-- **Global Average Pooling:** Reduces parameters and prevents overfitting vs Flatten
-- **Adaptive Learning Rates:** Automatic adjustment based on validation performance
+## License
 
----
+Open source - available for educational and research purposes.
 
 ## 🔬 Model Interpretability
 
