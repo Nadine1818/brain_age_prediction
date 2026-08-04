@@ -1,7 +1,7 @@
 # Brain Age Prediction using Deep Learning
 
 ## Project Overview
-answer using general knowledge,
+
 ## Dataset
 
 - **Source:** radiata-ai/brain-structure (HuggingFace)
